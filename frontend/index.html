@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SmartDialer Control Center</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #131722;
+    --panel-2: #1a1f2e;
+    --border: #262c3d;
+    --text: #e6e9f0;
+    --text-dim: #8b93a7;
+    --accent: #5b8cff;
+    --green: #34d399;
+    --yellow: #fbbf24;
+    --blue: #60a5fa;
+    --purple: #a78bfa;
+    --orange: #fb923c;
+    --gray: #4b5566;
+    --red: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+  }
+  header {
+    padding: 18px 28px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -0.2px; }
+  header .sub { color: var(--text-dim); font-size: 12.5px; margin-top: 2px; }
+  .tabs { display: flex; gap: 4px; padding: 0 28px; border-bottom: 1px solid var(--border); }
+  .tab {
+    padding: 12px 16px; cursor: pointer; color: var(--text-dim);
+    border-bottom: 2px solid transparent; font-weight: 600; font-size: 13.5px;
+  }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .page { display: none; padding: 24px 28px; }
+  .page.active { display: block; }
+
+  .grid { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px;
+  }
+  .panel h3 { margin: 0 0 14px 0; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-dim); }
+  label { display: block; font-size: 12.5px; color: var(--text-dim); margin: 12px 0 4px; }
+  select, input {
+    width: 100%; padding: 8px 10px; background: var(--panel-2);
+    border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 13px;
+  }
+  button {
+    width: 100%; padding: 10px; margin-top: 16px; border: none; border-radius: 6px;
+    font-weight: 700; font-size: 13.5px; cursor: pointer;
+  }
+  .btn-start { background: var(--green); color: #072114; }
+  .btn-stop { background: var(--red); color: #2a0a0a; }
+  .btn-run { background: var(--accent); color: white; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+
+  .metrics-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 18px; }
+  .metric {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .metric .val { font-size: 24px; font-weight: 800; }
+  .metric .label { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; text-transform: uppercase; letter-spacing: .04em; }
+
+  .agent-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 6px;
+  }
+  .agent-cell {
+    aspect-ratio: 1; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: rgba(0,0,0,.55); transition: background .3s ease;
+  }
+  .state-OFFLINE { background: var(--gray); color: #dfe3ea; }
+  .state-AVAILABLE { background: var(--green); }
+  .state-RESERVED { background: var(--yellow); }
+  .state-DIALING { background: var(--blue); color: white; }
+  .state-CONNECTED { background: var(--purple); color: white; }
+  .state-WRAP_UP { background: var(--orange); }
+  .state-PAUSED { background: var(--gray); }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 11.5px; color: var(--text-dim); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+
+  .feed { max-height: 320px; overflow-y: auto; }
+  .feed-row {
+    padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 12.5px;
+    font-family: "SF Mono", Consolas, monospace;
+  }
+  .feed-row:last-child { border-bottom: none; }
+  .feed-row.reduced { color: var(--yellow); }
+  .feed-row.forced { color: var(--red); }
+  .feed-row.ok { color: var(--text-dim); }
+
+  .call-row {
+    display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 8px;
+    padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: 12px;
+  }
+  .badge {
+    display: inline-block; padding: 2px 7px; border-radius: 20px; font-size: 10.5px; font-weight: 700;
+  }
+  .badge-COMPLETED, .badge-CONNECTED, .badge-ANSWERED { background: rgba(52,211,153,.18); color: var(--green); }
+  .badge-FAILED, .badge-CANCELLED { background: rgba(248,113,113,.18); color: var(--red); }
+  .badge-RINGING, .badge-INITIATED, .badge-RESERVED, .badge-QUEUED { background: rgba(96,165,250,.18); color: var(--blue); }
+
+  canvas { width: 100%; height: 140px; display: block; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--text-dim); font-weight: 600; font-size: 11.5px; text-transform: uppercase; }
+
+  .scenario-btns { display: flex; gap: 10px; margin-bottom: 18px; }
+  .scenario-btns button { width: auto; padding: 9px 20px; margin-top: 0; }
+
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+    border-radius: 20px; font-size: 12px; font-weight: 700;
+  }
+  .status-running { background: rgba(52,211,153,.15); color: var(--green); }
+  .status-stopped { background: rgba(139,147,167,.15); color: var(--text-dim); }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+  .loading { color: var(--text-dim); font-style: italic; padding: 20px; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>SmartDialer Control Center</h1>
+    <div class="sub">Campaign > Pacing Engine > Safety Controller > Call Allocator > Telecom Provider</div>
+  </div>
+  <span id="statusPill" class="status-pill status-stopped"><span class="pulse"></span> Idle</span>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-page="live">Live Campaign</div>
+  <div class="tab" data-page="scenarios">Scenario Runner</div>
+  <div class="tab" data-page="loadtest">Load Test</div>
+</div>
+
+<!-- LIVE CAMPAIGN -->
+<div class="page active" id="page-live">
+  <div class="grid">
+    <div class="panel">
+      <h3>Campaign Config</h3>
+
+      <label>Dialing Mode</label>
+      <select id="cfgMode">
+        <option value="progressive">Progressive (1 agent : 1 call)</option>
+        <option value="predictive">Predictive (rule-based pacing)</option>
+      </select>
+
+      <label>Telecom Provider</label>
+      <select id="cfgProvider">
+        <option value="A">Provider A (fast, reliable)</option>
+        <option value="B">Provider B (slow, duplicate/out-of-order events)</option>
+      </select>
+
+      <label>Agents</label>
+      <input id="cfgAgents" type="number" value="20" min="1" max="200">
+
+      <label>Borrowers (call queue size)</label>
+      <input id="cfgBorrowers" type="number" value="500" min="1" max="5000">
+
+      <label>Worker Threads (progressive only)</label>
+      <input id="cfgWorkers" type="number" value="6" min="1" max="30">
+
+      <label>Historical Answer Rate</label>
+      <input id="cfgAnswerRate" type="number" value="0.5" min="0.05" max="1" step="0.05">
+
+      <label>Avg Talk Time (sec)</label>
+      <input id="cfgTalkTime" type="number" value="90" min="10" max="600">
+
+      <button class="btn-start" id="btnStart">Start Campaign</button>
+      <button class="btn-stop" id="btnStop" disabled>Stop Campaign</button>
+    </div>
+
+    <div>
+      <div class="metrics-row">
+        <div class="metric"><div class="val" id="mUtil">0%</div><div class="label">Utilization</div></div>
+        <div class="metric"><div class="val" id="mInit">0</div><div class="label">Calls Initiated</div></div>
+        <div class="metric"><div class="val" id="mConn">0</div><div class="label">Calls Connected</div></div>
+        <div class="metric"><div class="val" id="mFail">0</div><div class="label">Calls Failed</div></div>
+        <div class="metric"><div class="val" id="mElapsed">0s</div><div class="label">Elapsed</div></div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <h3>Agent State Machine (live)</h3>
+        <div class="agent-grid" id="agentGrid"></div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--gray)"></i>OFFLINE</span>
+          <span><i class="dot" style="background:var(--green)"></i>AVAILABLE</span>
+          <span><i class="dot" style="background:var(--yellow)"></i>RESERVED</span>
+          <span><i class="dot" style="background:var(--blue)"></i>DIALING</span>
+          <span><i class="dot" style="background:var(--purple)"></i>CONNECTED</span>
+          <span><i class="dot" style="background:var(--orange)"></i>WRAP_UP</span>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px;">
+        <h3>Utilization over time</h3>
+        <canvas id="utilChart"></canvas>
+      </div>
+
+      <div class="grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="panel">
+          <h3>Safety Controller — live decisions & reasons</h3>
+          <div class="feed" id="decisionFeed"><div class="loading">Start a campaign to see decisions</div></div>
+        </div>
+        <div class="panel">
+          <h3>Recent Calls</h3>
+          <div class="feed" id="callFeed"><div class="loading">Start a campaign to see calls</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCENARIOS -->
+<div class="page" id="page-scenarios">
+  <div class="panel">
+    <h3>Assignment Scenarios (Answer Rate / Talk Time)</h3>
+    <div class="scenario-btns">
+      <button class="btn-run" data-scenario="A">Run Scenario A (20% / 120s)</button>
+      <button class="btn-run" data-scenario="B">Run Scenario B (50% / 90s)</button>
+      <button class="btn-run" data-scenario="C">Run Scenario C (70% / 180s)</button>
+    </div>
+    <div id="scenarioResults"></div>
+  </div>
+</div>
+
+<!-- LOAD TEST -->
+<div class="page" id="page-loadtest">
+  <div class="panel">
+    <h3>Concurrency Load Test</h3>
+    <label>Number of agents</label>
+    <input id="ltAgents" type="number" value="2000" min="10" max="20000" style="max-width:220px;">
+    <button class="btn-run" id="btnRunLoadtest" style="max-width:220px;">Run Load Test</button>
+    <div id="loadtestResults" style="margin-top:18px; white-space:pre-wrap; font-family:monospace; font-size:12.5px; color:var(--text-dim);"></div>
+  </div>
+</div>
+
+<script>
+const API = "";
+let pollTimer = null;
+
+// ---------- tabs ----------
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  document.querySelectorAll(".page").forEach(x => x.classList.remove("active"));
+  t.classList.add("active");
+  document.getElementById("page-" + t.dataset.page).classList.add("active");
+}));
+
+// ---------- live campaign ----------
+document.getElementById("btnStart").addEventListener("click", async () => {
+  const body = {
+    mode: document.getElementById("cfgMode").value,
+    provider: document.getElementById("cfgProvider").value,
+    num_agents: parseInt(document.getElementById("cfgAgents").value),
+    num_borrowers: parseInt(document.getElementById("cfgBorrowers").value),
+    num_workers: parseInt(document.getElementById("cfgWorkers").value),
+    answer_rate: parseFloat(document.getElementById("cfgAnswerRate").value),
+    avg_talk_time: parseFloat(document.getElementById("cfgTalkTime").value),
+  };
+  const res = await fetch(API + "/api/campaign/start", {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!data.ok) { alert(data.error || "Failed to start"); return; }
+  setRunningUI(true);
+  startPolling();
+});
+
+document.getElementById("btnStop").addEventListener("click", async () => {
+  await fetch(API + "/api/campaign/stop", { method: "POST" });
+  setRunningUI(false);
+  stopPolling();
+});
+
+function setRunningUI(running) {
+  document.getElementById("btnStart").disabled = running;
+  document.getElementById("btnStop").disabled = !running;
+  const pill = document.getElementById("statusPill");
+  pill.className = "status-pill " + (running ? "status-running" : "status-stopped");
+  pill.innerHTML = '<span class="pulse"></span> ' + (running ? "Campaign running" : "Idle");
+}
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollSnapshot, 600);
+  pollSnapshot();
+}
+function stopPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+}
+
+async function pollSnapshot() {
+  const res = await fetch(API + "/api/campaign/snapshot");
+  const data = await res.json();
+  if (!data.running && data.agents) { setRunningUI(false); stopPolling(); }
+  renderSnapshot(data);
+}
+
+function renderSnapshot(data) {
+  if (!data.agents) return;
+
+  const m = data.metrics || {};
+  document.getElementById("mUtil").textContent = (m.utilization_pct ?? 0) + "%";
+  document.getElementById("mInit").textContent = m.calls_initiated ?? 0;
+  document.getElementById("mConn").textContent = m.calls_connected ?? 0;
+  document.getElementById("mFail").textContent = m.calls_failed ?? 0;
+  document.getElementById("mElapsed").textContent = (m.ts ?? 0) + "s";
+
+  const grid = document.getElementById("agentGrid");
+  grid.innerHTML = "";
+  data.agents.forEach(a => {
+    const cell = document.createElement("div");
+    cell.className = "agent-cell state-" + a.state;
+    cell.title = a.id + ": " + a.state;
+    cell.textContent = a.id.replace("agent-", "");
+    grid.appendChild(cell);
+  });
+
+  const feed = document.getElementById("decisionFeed");
+  if (data.recent_decisions && data.recent_decisions.length) {
+    feed.innerHTML = data.recent_decisions.map(d => {
+      const cls = d.forced ? "forced" : (d.reason.startsWith("Reduced") ? "reduced" : "ok");
+      return `<div class="feed-row ${cls}">${escapeHtml(d.reason)}</div>`;
+    }).join("");
+  }
+
+  const callFeed = document.getElementById("callFeed");
+  if (data.recent_calls && data.recent_calls.length) {
+    callFeed.innerHTML = data.recent_calls.map(c =>
+      `<div class="call-row">
+         <span>${c.id.slice(0,14)}</span>
+         <span>${c.agent_id ?? "-"}</span>
+         <span>${c.provider}</span>
+         <span><span class="badge badge-${c.state}">${c.state}</span></span>
+       </div>`
+    ).join("");
+  }
+
+  if (data.history) drawChart(data.history);
+}
+
+function escapeHtml(s) {
+  const d = document.createElement("div"); d.textContent = s; return d.innerHTML;
+}
+
+function drawChart(history) {
+  const canvas = document.getElementById("utilChart");
+  const ctx = canvas.getContext("2d");
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  canvas.width = w; canvas.height = h;
+  ctx.clearRect(0, 0, w, h);
+  if (history.length < 2) return;
+
+  ctx.strokeStyle = "#262c3d";
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = (h / 4) * i;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  const maxPct = 100;
+  ctx.strokeStyle = "#5b8cff";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  history.forEach((pt, i) => {
+    const x = (i / (history.length - 1)) * w;
+    const y = h - (pt.utilization_pct / maxPct) * h;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
+
+// ---------- scenarios ----------
+document.querySelectorAll("[data-scenario]").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const name = btn.dataset.scenario;
+    const resultsDiv = document.getElementById("scenarioResults");
+    resultsDiv.innerHTML = `<div class="loading">Running scenario ${name} (~8s)...</div>`;
+    document.querySelectorAll("[data-scenario]").forEach(b => b.disabled = true);
+    try {
+      const res = await fetch(API + `/api/scenarios/run/${name}`, { method: "POST" });
+      const data = await res.json();
+      if (!data.ok) { resultsDiv.innerHTML = `<div>${data.error}</div>`; return; }
+      resultsDiv.innerHTML = renderScenarioTable([data.progressive, data.predictive]);
+    } finally {
+      document.querySelectorAll("[data-scenario]").forEach(b => b.disabled = false);
+    }
+  });
+});
+
+function renderScenarioTable(rows) {
+  const headers = ["Scenario","Agents","Calls Init.","Calls Conn.","Calls Failed","Utilization","Safety Decisions","Safety Reductions"];
+  let html = "<table><thead><tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr></thead><tbody>";
+  rows.forEach(r => {
+    html += `<tr>
+      <td>${r.scenario}</td><td>${r.total_agents}</td><td>${r.calls_initiated}</td>
+      <td>${r.calls_connected}</td><td>${r.calls_failed}</td><td>${r.utilization_snapshot}</td>
+      <td>${r.safety_decisions}</td><td>${r.safety_reductions}</td>
+    </tr>`;
+  });
+  html += "</tbody></table>";
+  return html;
+}
+
+// ---------- load test ----------
+document.getElementById("btnRunLoadtest").addEventListener("click", async () => {
+  const agents = parseInt(document.getElementById("ltAgents").value);
+  const out = document.getElementById("loadtestResults");
+  out.textContent = "Running load test against " + agents + " agents...";
+  const res = await fetch(API + "/api/loadtest/run?agents=" + agents, { method: "POST" });
+  const data = await res.json();
+  out.textContent = data.output || data.error || "No output";
+});
+</script>
+</body>
+</html>
